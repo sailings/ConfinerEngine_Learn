@@ -38,8 +38,8 @@ namespace ConfinerEngine
                 }
             }
         }
-       
-        public void DrawTriangleWire(Point p1,Point p2,Point p3,Color color)
+
+        public void DrawTriangleWire(Point p1, Point p2, Point p3, Color color)
         {
             DrawLine(p1, p2, color);
             DrawLine(p2, p3, color);

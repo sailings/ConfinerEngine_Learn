@@ -2,6 +2,8 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using FileFormatWavefront;
+using FileFormatWavefront.Model;
 
 namespace ConfinerEngine
 {
@@ -51,6 +53,8 @@ namespace ConfinerEngine
         IntPtr pSource = IntPtr.Zero;
         IntPtr pOrig = IntPtr.Zero;
 
+        FileLoadResult<Scene> model;
+
         public RenderForm()
         {
             InitializeComponent();
@@ -60,17 +64,42 @@ namespace ConfinerEngine
 
             pTarget = formGraphic.GetHdc();
             pSource = CreateCompatibleDC(pTarget);
+
+            //model = FileFormatObj.Load(@"Assets\phoenix\body.obj",false);
+            model = FileFormatObj.Load(@"Assets\phoenix\123.obj", false);
         }
+
+        private bool rotated = false;
 
         public void Render()
         {
             pOrig = SelectObject(pSource, dbm.Bitmap.GetHbitmap());
 
             dbm.Clear(Color.LightYellow);
-            dbm.DrawTriangle(new Point(Width / 2, Height / 4), new Point(Width / 4, Height / 2), new Point(Width * 3 / 4, Height / 2), Color.Red);
-            dbm.DrawLine(0, 0, 100, 200, Color.Green);
-            dbm.DrawLine(300, 400, 10, 60, Color.Yellow);
 
+            //dbm.DrawTriangle(new Point(Width / 2, Height / 4), new Point(Width / 4, Height / 2), new Point(Width * 3 / 4, Height / 2), Color.Red);
+            //dbm.DrawLine(0, 0, 100, 200, Color.Green);
+            //dbm.DrawLine(300, 400, 10, 60, Color.Yellow);
+
+            for (int i = 0; i < model.Model.Groups[0].Faces.Count; i++)
+            {
+                var p0 = model.Model.Vertices[model.Model.Groups[0].Faces[i].Indices[0].vertex];
+                var p1 = model.Model.Vertices[model.Model.Groups[0].Faces[i].Indices[1].vertex];
+                var p2 = model.Model.Vertices[model.Model.Groups[0].Faces[i].Indices[2].vertex];
+
+                var sp0 = new Point((int)((p0.x + 1.0f) * Width / 2.0f), (int)((p0.y + 1.0f) * Height / 2.0f));
+                var sp1 = new Point((int)((p1.x + 1.0f) * Width / 2.0f), (int)((p1.y + 1.0f) * Height / 2.0f));
+                var sp2 = new Point((int)((p2.x + 1.0f) * Width / 2.0f), (int)((p2.y + 1.0f) * Height / 2.0f));
+
+                //dbm.DrawTriangleWire(sp0, sp1, sp2, Color.Black);
+                dbm.DrawTriangle(sp0, sp1, sp2, Color.Black);
+            }
+
+            if (!rotated)
+            {
+                dbm.Bitmap.RotateFlip(RotateFlipType.RotateNoneFlipY);
+                rotated = true;
+            }
             graphicBuffer.SwapBuffer();
 
             BitBlt(pTarget, 0, 0, dbm.Width, dbm.Height, pSource, 0, 0, TernaryRasterOperations.SRCCOPY);
