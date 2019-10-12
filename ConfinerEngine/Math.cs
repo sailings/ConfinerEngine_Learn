@@ -127,6 +127,11 @@ namespace ConfinerEngine
             float z = a.x * b.y - a.y * b.x;
             return new Vector3F(x, y, z);
         }
+
+        public static Vector3F Vec3_Modulate(Vector3F a, Vector3F b)
+        {
+            return new Vector3F(a.x * b.x, a.y * b.y, a.z * b.z);
+        }
     }
 
     public struct Vector4F

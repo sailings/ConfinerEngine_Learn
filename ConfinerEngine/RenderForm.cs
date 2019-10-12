@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using FileFormatWavefront;
 using FileFormatWavefront.Model;
-using FreeImageAPI;
 
 namespace ConfinerEngine
 {

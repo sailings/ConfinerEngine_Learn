@@ -18,6 +18,8 @@ namespace ConfinerEngine
         public int Height { get; private set; }
         public int Width { get; private set; }
 
+        private float alpha_cutoff = 0.5f;
+
         protected GCHandle BitsHandle { get; private set; }
 
         public DirectBitmap(int width, int height)
@@ -104,8 +106,17 @@ namespace ConfinerEngine
                     if (weights.x >= 0 && weights.y >= 0 && weights.z >= 0)
                     {
                         var newUV = interpolate(new Vector2F[] {v1.UV,v2.UV,v3.UV}, weights, recip_w);
-                        var col = texture.texture_repeat_sample(newUV);
-                        SetPixel(x, y, Color.FromArgb((int)(col.w * 255), (int)(col.x * 255), (int)(col.y * 255), (int)(col.z * 255)));
+                        //var col = texture.texture_repeat_sample(newUV);
+
+                        var diffuse = new Vector3F(1,1,1);
+                        var sample = texture.texture_repeat_sample(newUV);
+                        diffuse = Vector3F.Vec3_Modulate(diffuse, new Vector3F(sample.x,sample.y,sample.z));
+                        float alpha = sample.w;
+
+                        if (alpha >= alpha_cutoff)
+                        {
+                            SetPixel(x, y, Color.FromArgb((int)(alpha * 255), (int)(diffuse.x * 255), (int)(diffuse.y * 255), (int)(diffuse.z * 255)));
+                        }
                     }
                 }
             }
