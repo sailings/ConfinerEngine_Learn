@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
@@ -55,10 +56,10 @@ namespace ConfinerEngine
             Vector2F min = Vector2F.Min(Vector2F.Min(a, b), c);
             Vector2F max = Vector2F.Max(Vector2F.Max(a, b), c);
             BoundingBox bbox = new BoundingBox();
-            bbox.min_x = Math.Max((int)Math.Ceiling(min.X), 0);
-            bbox.min_y = Math.Max((int)Math.Ceiling(min.Y), 0);
-            bbox.max_x = Math.Min((int)Math.Floor(max.X), width - 1);
-            bbox.max_y = Math.Min((int)Math.Floor(max.Y), height - 1);
+            bbox.min_x = Math.Max((int)Math.Ceiling(min.x), 0);
+            bbox.min_y = Math.Max((int)Math.Ceiling(min.y), 0);
+            bbox.max_x = Math.Min((int)Math.Floor(max.x), width - 1);
+            bbox.max_y = Math.Min((int)Math.Floor(max.y), height - 1);
             
             return bbox;
         }
@@ -71,17 +72,28 @@ namespace ConfinerEngine
             Vector2F ab = b - a;
             Vector2F ac = c - a;
             Vector2F ap = p - a;
-            float factor = 1 / (ab.X * ac.Y - ab.Y * ac.X);
-            float s = (ac.Y * ap.X - ac.X * ap.Y) * factor;
-            float t = (ab.X * ap.Y - ab.Y * ap.X) * factor;
+            float factor = 1 / (ab.x * ac.y - ab.y * ac.x);
+            float s = (ac.y * ap.x - ac.x * ap.y) * factor;
+            float t = (ab.x * ap.y - ab.y * ap.x) * factor;
             Vector3F weights = new Vector3F(1 - s - t, s, t);
             return weights;
         }
 
-
-        public void DrawTriangle(Point p1, Point p2, Point p3, Color color)
+        public void DrawTriangle(Texture texture,CEVertex v1, CEVertex v2, CEVertex v3, Color color,Vector4F[] clip_coords)
         {
-            var screen_coords = new List<Point> { p1, p2, p3 }.Select(x => new Vector2F(x.X, x.Y)).ToArray();
+            float[] recip_w = new float[3];
+
+            var screen_coords = new Vector2F[] {
+                new Vector2F(v1.Position.x,v1.Position.y),
+                new Vector2F(v2.Position.x, v2.Position.y),
+                new Vector2F(v3.Position.x, v3.Position.y)
+            };
+
+            for (int i = 0; i < 3; i++)
+            {
+                recip_w[i] = 1 / clip_coords[i].w;
+            }
+
             BoundingBox bBox = FindBoundingBox(screen_coords, Width, Height);
             for (int x = bBox.min_x; x <= bBox.max_x; x++)
             {
@@ -89,13 +101,26 @@ namespace ConfinerEngine
                 {
                     Vector2F point = new Vector2F(x, y);
                     Vector3F weights = CalculateWeights(screen_coords, point);
-                    if (weights.X >= 0 && weights.Y >= 0 && weights.Z >= 0)
+                    if (weights.x >= 0 && weights.y >= 0 && weights.z >= 0)
                     {
-                        SetPixel(x, y, color);
+                        var newUV = interpolate(new Vector2F[] {v1.UV,v2.UV,v3.UV}, weights, recip_w);
+                        var col = texture.texture_repeat_sample(newUV);
+                        SetPixel(x, y, Color.FromArgb((int)(col.w * 255), (int)(col.x * 255), (int)(col.y * 255), (int)(col.z * 255)));
                     }
                 }
             }
+        }
 
+        private Vector2F interpolate(Vector2F[] srcUV,Vector3F weights, float[] recip_w)
+        {
+            float weight0 = recip_w[0] * weights.x;
+            float weight1 = recip_w[1] * weights.y;
+            float weight2 = recip_w[2] * weights.z;
+            float normalizer = 1 / (weight0 + weight1 + weight2);
+
+            var newU = normalizer * (srcUV[0].x * weight0 + srcUV[1].x * weight1 + srcUV[2].x * weight2);
+            var newV = normalizer * (srcUV[0].y * weight0 + srcUV[1].y * weight1 + srcUV[2].y * weight2);
+            return new Vector2F(newU,newV);
         }
 
         public void DrawLine(Point p1,Point p2,Color color)
@@ -120,6 +145,9 @@ namespace ConfinerEngine
 
         public void SetPixel(int x, int y, Color colour)
         {
+            if (x < 0 || y < 0)
+                return;
+
             int index = x + (y * Width);
             int col = colour.ToArgb();
 
