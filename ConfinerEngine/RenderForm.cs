@@ -147,9 +147,12 @@ namespace ConfinerEngine
                 var ndcP1 = Vector3F.Vec3_From_Vec4(cp1) / cp1.w;
                 var ndcP2 = Vector3F.Vec3_From_Vec4(cp2) / cp2.w;
 
-                var sp0 = new Vector3F((int)((ndcP0.x + 1.0f) * renderWidth / 2.0f), (int)((ndcP0.y + 1.0f) * renderHeight / 2.0f),0);
-                var sp1 = new Vector3F((int)((ndcP1.x + 1.0f) * renderWidth / 2.0f), (int)((ndcP1.y + 1.0f) * renderHeight / 2.0f),0);
-                var sp2 = new Vector3F((int)((ndcP2.x + 1.0f) * renderWidth / 2.0f), (int)((ndcP2.y + 1.0f) * renderHeight / 2.0f),0);
+                if (Vector3F.is_back_facing(ndcP0, ndcP1, ndcP2))
+                    continue;
+
+                var sp0 = new Vector3F((int)((ndcP0.x + 1.0f) * renderWidth * 0.5f), (int)((ndcP0.y + 1.0f) * renderHeight * 0.5f), (ndcP0.z + 1) * 0.5f);
+                var sp1 = new Vector3F((int)((ndcP1.x + 1.0f) * renderWidth * 0.5f), (int)((ndcP1.y + 1.0f) * renderHeight * 0.5f), (ndcP1.z + 1) * 0.5f);
+                var sp2 = new Vector3F((int)((ndcP2.x + 1.0f) * renderWidth * 0.5f), (int)((ndcP2.y + 1.0f) * renderHeight * 0.5f), (ndcP2.z + 1) * 0.5f);
 
                 var uv0 = model.Model.Uvs[model.Model.UngroupedFaces[i].Indices[0].uv.Value];
                 var uv1 = model.Model.Uvs[model.Model.UngroupedFaces[i].Indices[1].uv.Value];

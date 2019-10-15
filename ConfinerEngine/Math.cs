@@ -142,6 +142,15 @@ namespace ConfinerEngine
         {
             return new Vector3F(a.x * b.x, a.y * b.y, a.z * b.z);
         }
+
+        public static bool is_back_facing(Vector3F a, Vector3F b, Vector3F c)
+        {
+            float signed_area = 0;
+            signed_area += a.x * b.y - a.y * b.x;
+            signed_area += b.x * c.y - b.y * c.x;
+            signed_area += c.x * a.y - c.y * a.x;
+            return signed_area <= 0;
+        }
     }
 
     public struct Vector4F

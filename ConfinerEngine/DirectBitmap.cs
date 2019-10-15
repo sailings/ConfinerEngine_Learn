@@ -20,6 +20,10 @@ namespace ConfinerEngine
 
         private float alpha_cutoff = 0.5f;
 
+        public int[] ColorBuffer { get;private set; }
+
+        public float[] DepthBuffer { get; private set; }
+
         protected GCHandle BitsHandle { get; private set; }
 
         public DirectBitmap(int width, int height)
@@ -29,15 +33,21 @@ namespace ConfinerEngine
             Bits = new Int32[width * height];
             BitsHandle = GCHandle.Alloc(Bits, GCHandleType.Pinned);
             Bitmap = new Bitmap(width, height, width * 4, PixelFormat.Format32bppPArgb, BitsHandle.AddrOfPinnedObject());
+            ColorBuffer = new int[Width * Height];
+            DepthBuffer = new float[Width * Height];
+            for (int i = 0; i < Width * Height; i++)
+            {
+                DepthBuffer[i] = 1;
+            }
         }
 
-        public void Clear(Color color)
+        public void Clear(Color color, float depth = 1)
         {
             for (int i = 0; i < Width; i++)
             {
                 for (int j = 0; j < Height; j++)
                 {
-                    SetPixel(i, j, color);
+                    SetPixel(i, j, color, depth);
                 }
             }
         }
@@ -85,6 +95,11 @@ namespace ConfinerEngine
         {
             float[] recip_w = new float[3];
 
+            float[] screen_depths = new float[3];
+            screen_depths[0] = v1.Position.z;
+            screen_depths[1] = v2.Position.z;
+            screen_depths[2] = v3.Position.z;
+
             var screen_coords = new Vector2F[] {
                 new Vector2F(v1.Position.x,v1.Position.y),
                 new Vector2F(v2.Position.x, v2.Position.y),
@@ -105,17 +120,21 @@ namespace ConfinerEngine
                     Vector3F weights = CalculateWeights(screen_coords, point);
                     if (weights.x >= 0 && weights.y >= 0 && weights.z >= 0)
                     {
-                        var newUV = interpolate(new Vector2F[] {v1.UV,v2.UV,v3.UV}, weights, recip_w);
-                        //var col = texture.texture_repeat_sample(newUV);
-
-                        var diffuse = new Vector3F(1,1,1);
-                        var sample = texture.texture_repeat_sample(newUV);
-                        diffuse = Vector3F.Vec3_Modulate(diffuse, new Vector3F(sample.x,sample.y,sample.z));
-                        float alpha = sample.w;
-
-                        if (alpha >= alpha_cutoff)
+                        int index = y * Width + x;
+                        float depth = interpolate_depth(screen_depths, weights);
+                        if (depth <= DepthBuffer[index])
                         {
-                            SetPixel(x, y, Color.FromArgb((int)(alpha * 255), (int)(diffuse.x * 255), (int)(diffuse.y * 255), (int)(diffuse.z * 255)));
+                            var newUV = interpolate(new Vector2F[] { v1.UV, v2.UV, v3.UV }, weights, recip_w);
+
+                            var diffuse = new Vector3F(1, 1, 1);
+                            var sample = texture.texture_repeat_sample(newUV);
+                            diffuse = Vector3F.Vec3_Modulate(diffuse, new Vector3F(sample.x, sample.y, sample.z));
+                            float alpha = sample.w;
+
+                            if (alpha >= alpha_cutoff)
+                            {
+                                SetPixel(x, y, Color.FromArgb((int)(alpha * 255), (int)(diffuse.x * 255), (int)(diffuse.y * 255), (int)(diffuse.z * 255)), depth);
+                            }
                         }
                     }
                 }
@@ -134,19 +153,28 @@ namespace ConfinerEngine
             return new Vector2F(newU,newV);
         }
 
+        private float interpolate_depth(float[] screen_depths, Vector3F weights)
+        {
+            float depth0 = screen_depths[0];
+            float depth1 = screen_depths[1];
+            float depth2 = screen_depths[2];
+            return depth0 * weights.x + depth1 * weights.y + depth2 * weights.z;
+        }
+
+
         public void DrawLine(Point p1,Point p2,Color color)
         {
             DrawLine(p1.X, p1.Y, p2.X, p2.Y, color);
         }
 
-        public void DrawLine(int x0, int y0, int x1, int y1, Color color)
+        public void DrawLine(int x0, int y0, int x1, int y1, Color color,float depth=1)
         {
             int dx = Math.Abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
             int dy = Math.Abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
             int err = (dx > dy ? dx : -dy) / 2, e2;
             for (; ; )
             {
-                SetPixel(x0, y0, color);
+                SetPixel(x0, y0, color,depth);
                 if (x0 == x1 && y0 == y1) break;
                 e2 = err;
                 if (e2 > -dx) { err -= dy; x0 += sx; }
@@ -154,7 +182,7 @@ namespace ConfinerEngine
             }
         }
 
-        public void SetPixel(int x, int y, Color colour)
+        public void SetPixel(int x, int y, Color colour,float depth)
         {
             if (x < 0 || y < 0)
                 return;
@@ -163,7 +191,11 @@ namespace ConfinerEngine
             int col = colour.ToArgb();
 
             if (index < Bits.Length)
+            {
                 Bits[index] = col;
+                ColorBuffer[index] = col;
+                DepthBuffer[index] = depth;
+            }
         }
 
         public Color GetPixel(int x, int y)
