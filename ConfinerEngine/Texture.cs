@@ -30,7 +30,9 @@ namespace ConfinerEngine
             int c = (int)((Width - 1) * u);
             int r = (int)((Height - 1) * v);
             int index = r * Width + c;
-            return Buffer[index];
+            if (index >= 0 && index < Buffer.Length)
+                return Buffer[index];
+            return new Vector4F();
         }
 
         public static float uchar_to_float(byte value)

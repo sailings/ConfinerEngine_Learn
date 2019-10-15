@@ -1,0 +1,11 @@
+*.cache
+*.CopyComplete
+*.exe
+*.obj
+*.pdb
+*.suo
+*.ide
+*.txt
+*.ide-shm
+*.ide-wal
+*.force

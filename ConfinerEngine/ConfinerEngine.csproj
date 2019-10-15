@@ -54,6 +54,7 @@
     <Compile Include="GraphicBuffer.cs" />
     <Compile Include="Image.cs" />
     <Compile Include="Math.cs" />
+    <Compile Include="Motion.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RenderForm.cs">

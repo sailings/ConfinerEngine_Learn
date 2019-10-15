@@ -29,6 +29,11 @@ namespace ConfinerEngine
             this.y = y;
         }
 
+        public static Vector2F operator +(Vector2F a, Vector2F b)
+        {
+            return new Vector2F(a.x + b.x, a.y + b.y);
+        }
+
         public static Vector2F operator /(Vector2F vec, float div)
         {
             return new Vector2F(vec.x / div, vec.y / div);
@@ -83,6 +88,11 @@ namespace ConfinerEngine
             this.x = x;
             this.y = y;
             this.z = z;
+        }
+
+        public static Vector3F operator +(Vector3F a, Vector3F b)
+        {
+            return new Vector3F(a.x + b.x, a.y + b.y, a.z + b.z);
         }
 
         public static Vector3F operator -(Vector3F a, Vector3F b)

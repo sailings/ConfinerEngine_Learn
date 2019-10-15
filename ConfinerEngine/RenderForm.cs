@@ -25,6 +25,8 @@ namespace ConfinerEngine
         [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
         static extern bool DeleteObject(IntPtr hObject);
 
+        private Motion motion = new Motion();
+
         public enum TernaryRasterOperations : uint
         {
             SRCCOPY = 0x00CC0020,
@@ -56,10 +58,7 @@ namespace ConfinerEngine
         FileLoadResult<Scene> model1;
         FileLoadResult<Scene> model2;
 
-        //FreeImage
-
         private Matrix4x4 modelMatrix = Matrix4x4.Identity;
-        //private Matrix4x4 cameraMatrix = Matrix4x4.Identity;
         private Matrix4x4 cameraVPMatrix = Matrix4x4.Identity;
         private Camera camera = new Camera();
 
@@ -70,13 +69,18 @@ namespace ConfinerEngine
         Image imageWings = new Image();
         Texture textureWings = new Texture();
 
+        PointF mPos;
+        bool altKeyDown = false;
+
         public RenderForm()
         {
             InitializeComponent();
             formGraphic = panel1.CreateGraphics();
             renderWidth = panel1.Width;
             renderHeight = panel1.Height;
+            panel1.MouseWheel += Panel1_MouseWheel;
             graphicBuffer = new GraphicBuffer(renderWidth, renderHeight);
+
             dbm = new DirectBitmap(renderWidth, renderHeight);
 
             pTarget = formGraphic.GetHdc();
@@ -84,42 +88,47 @@ namespace ConfinerEngine
 
             model1 = FileFormatObj.Load(@"Assets\phoenix\body.obj",false);
             model2 = FileFormatObj.Load(@"Assets\phoenix\wings.obj", false);
-            //diffuseTga = FreeImage.Load(FREE_IMAGE_FORMAT.FIF_TARGA, @"Assets\phoenix\body_diffuse.tga", FREE_IMAGE_LOAD_FLAGS.DEFAULT);
             imageBody =Image.Load_Tga(@"Assets\phoenix\body_diffuse.tga");
             textureBody = Texture.Texture_From_Image(imageBody);
 
             imageWings = Image.Load_Tga(@"Assets\phoenix\wings_diffuse.tga");
             textureWings = Texture.Texture_From_Image(imageWings);
 
-            //FreeImage.GetBitmap(diffuseTga).LockBits
-            //Scanline<RGBTRIPLE> scanline = new Scanline<RGBTRIPLE>(diffuseTga);
+            camera.Position = new Vector3F(0, 0, 1.5f);
+            camera.Target = new Vector3F(0, 0, 0);
+            camera.Aspect = renderWidth * 1.0f / renderHeight;
 
-            //camera.Position = new Vector3F(0,0,1.5f);
-            //camera.Target = new Vector3F(0,0,0);
-            //camera.Aspect = renderWidth * 1.0f / renderHeight;
-
-            //cameraVPMatrix = camera.camera_get_proj_matrix() * camera.camera_get_view_matrix();
-
-            //var translation = Matrix4x4.mat4_translate(376.905f, -169.495f, 0);
-            //var rotation = Matrix4x4.mat4_rotate_y((float)Math.PI);
-            //var scale = Matrix4x4.mat4_scale(0.001f, 0.001f, 0.001f);
-            //modelMatrix = scale * (rotation * translation);
-        }
-
-        private bool rotated = false;
-
-        private void UpdateRenderPara()
-        {
-            camera.Position = new Vector3F(float.Parse(txtCPx.Text.Trim()), float.Parse(txtCPy.Text.Trim()), float.Parse(txtCPz.Text.Trim()));
-            //txtCPx.Text = (float.Parse(txtCPx.Text.Trim()) + 0.001f).ToString();
-            camera.Target = new Vector3F(float.Parse(txtCTx.Text.Trim()), float.Parse(txtCTy.Text.Trim()), float.Parse(txtCTz.Text.Trim()));
-            camera.Aspect = float.Parse(txtCA.Text.Trim());
             cameraVPMatrix = camera.camera_get_proj_matrix() * camera.camera_get_view_matrix();
 
-            var translation = Matrix4x4.mat4_translate(float.Parse(txtMTx.Text.Trim()), float.Parse(txtMTy.Text.Trim()), float.Parse(txtMTz.Text.Trim()));
-            var rotation = Matrix4x4.mat4_rotate_y((float)Math.PI / 180 * float.Parse(txtMRy.Text.Trim()));
-            var scale = Matrix4x4.mat4_scale(float.Parse(txtMSx.Text.Trim()), float.Parse(txtMSy.Text.Trim()), float.Parse(txtMSz.Text.Trim()));
+            var translation = Matrix4x4.mat4_translate(376.905f, -169.495f, 0);
+            var rotation = Matrix4x4.mat4_rotate_y((float)Math.PI);
+            var scale = Matrix4x4.mat4_scale(0.001f, 0.001f, 0.001f);
             modelMatrix = scale * (rotation * translation);
+        }
+
+        private void Panel1_MouseWheel(object sender, MouseEventArgs e)
+        {
+            motion.dolly += e.Delta/120.0f;
+        }
+       
+        private void UpdateCamera()
+        {
+            Vector3F from_target = camera.Position - camera.Target;
+            Vector3F from_camera = camera.Target - camera.Position;
+            Vector3F pan = Camera.calculate_pan(from_camera, motion);
+            Vector3F offset = Camera.calculate_offset(from_target, motion);
+            camera.Target = camera.Target + pan;
+            camera.Position = camera.Target + offset;
+
+            cameraVPMatrix = camera.camera_get_proj_matrix() * camera.camera_get_view_matrix();
+
+            txtCTx.Text = camera.Target.x.ToString();
+            txtCTy.Text = camera.Target.y.ToString();
+            txtCTz.Text = camera.Target.z.ToString();
+
+            txtCPx.Text = camera.Position.x.ToString();
+            txtCPy.Text = camera.Position.y.ToString();
+            txtCPz.Text = camera.Position.z.ToString();
         }
 
         private void DrawModel(FileLoadResult<Scene> model, Texture texture, DirectBitmap dbm)
@@ -155,45 +164,62 @@ namespace ConfinerEngine
             }
         }
 
-        private void Button1_Click(object sender, EventArgs e)
+        private void Panel1_MouseMove(object sender, MouseEventArgs e)
         {
-            //Render();
+            if (e.Button == MouseButtons.Left && altKeyDown)
+            {
+                var pos_delta = new Vector2F(e.Location.X - mPos.X, e.Location.Y - mPos.Y) / Width;
+                motion.orbit = motion.orbit + pos_delta;
+                mPos = e.Location;
+            }
+            else if (e.Button == MouseButtons.Middle)
+            {
+                var pos_delta = new Vector2F(e.Location.X - mPos.X, e.Location.Y - mPos.Y) / Width;
+                motion.pan = motion.pan + pos_delta;
+                mPos = e.Location;
+            }
+        }
+
+        private void Panel1_MouseDown(object sender, MouseEventArgs e)
+        {
+            mPos = e.Location;
+        }
+
+        private void RenderForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            altKeyDown = e.Alt;
+        }
+
+        private void RenderForm_KeyUp(object sender, KeyEventArgs e)
+        {
+            altKeyDown = e.Alt;
         }
 
         public void Render()
         {
-            //dbm = new DirectBitmap(renderWidth, renderHeight);
-
-            UpdateRenderPara();
-            //Console.WriteLine(modelMatrix.ToString());
-
-            pOrig = SelectObject(pSource, dbm.Bitmap.GetHbitmap());
-
+            dbm = new DirectBitmap(renderWidth, renderHeight);
+            UpdateCamera();
             dbm.Clear(Color.LightYellow);
 
             //dbm.DrawTriangle(new Point(Width / 2, Height / 4), new Point(Width / 4, Height / 2), new Point(Width * 3 / 4, Height / 2), Color.Red);
             //dbm.DrawLine(0, 0, 100, 200, Color.Green);
             //dbm.DrawLine(300, 400, 10, 60, Color.Yellow);
 
-            DrawModel(model1,textureBody, dbm);
-            DrawModel(model2,textureWings, dbm);
+            DrawModel(model1, textureBody, dbm);
+            DrawModel(model2, textureWings, dbm);
 
-            if (!rotated)
-            {
-                dbm.Bitmap.RotateFlip(RotateFlipType.RotateNoneFlipY);
-                rotated = true;
-            }
+            dbm.Bitmap.RotateFlip(RotateFlipType.RotateNoneFlipY);
+
+            pOrig = SelectObject(pSource, dbm.Bitmap.GetHbitmap());
+                
             graphicBuffer.SwapBuffer();
 
             BitBlt(pTarget, 0, 0, dbm.Width, dbm.Height, pSource, 0, 0, TernaryRasterOperations.SRCCOPY);
             DeleteObject(pOrig);
 
-            //dbm.Dispose();
-            //dbm.Bitmap.Save("0.bmp");
-            //pictureBox1.Image = dbm.Bitmap.Clone() as Image;
-            //dbm.Dispose();
-            //pictureBox1.Image.Dispose();
+            dbm.Dispose();
 
+            motion.Reset();
         }
     }
 }
